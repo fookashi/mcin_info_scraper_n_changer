@@ -16,7 +16,7 @@ def scrape_names(email, password, symbols):
 
 
 if __name__ == "__main__":
-    email = 's22@test.test'
-    password = 'FV79GBUC'
+    email = 'your email'
+    password = 'your password'
     change_names(email, password)
 
