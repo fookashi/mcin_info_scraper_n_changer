@@ -5,7 +5,7 @@ from enum import Enum
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import requests
-
+from loguru import logger
 
 Participant = namedtuple('Participant', ['name', 'link'])
 
@@ -32,7 +32,8 @@ class WebDriverMixin:
     Waits for captcha solving before proceeding
     '''
     def __init__(self, email: str, password: str):
-        print('Add extensions, arguments etc')
+        logger.debug('Started initializing web driver!')
+        logger.info('Add extensions, arguments etc')
         self._update_crx()
         options = webdriver.ChromeOptions()
         options.add_extension('src/solver.crx')
@@ -40,7 +41,7 @@ class WebDriverMixin:
         options.add_argument('--ignore-ssl-errors')
         options.headless = False
 
-        print('Initializing browser driver')
+        logger.info('Initializing browser driver')
         self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(10)
         self.driver.get("https://orgm.riep.ru/cabinet")
@@ -49,12 +50,13 @@ class WebDriverMixin:
         password_elem = self.driver.find_element(By.ID, 'password')
         password_elem.send_keys(password)
         submit_button = self.driver.find_element(By.XPATH, "//*[text()='Войти']")
-        print('Waiting for captcha solving')
+        logger.info('Waiting for captcha solving.')
         curr_url = self.driver.current_url
         while self.driver.current_url == curr_url:
             sleep(3)
+        logger.debug(f'Browser initialized, now {self.__class__.__name__} will do its job.')
     def _update_crx(self):
-        print('downloading crx file for captcha ext')
+        logger.info('downloading crx file for captcha ext')
         crx_page_url = "https://chrome.google.com/webstore/detail/buster-captcha-solver-for/mpbjkejclgfgadiemmefgebjfooflfhl"
         ext_id = crx_page_url.split('/')[-1]
         download_link = f"https://clients2.google.com/service/update2/crx?response=redirect&os=crx&arch=x86-64&nacl_arch=x86-64&prod=chromecrx&prodchannel=unknown&prodversion=88.0.4324.150&acceptformat=crx2,crx3&x=id%3D{ext_id}%26uc"

@@ -1,9 +1,7 @@
 from time import sleep
 
-from concurrent.futures import ThreadPoolExecutor
-
 import orjson
-from selenium.webdriver.common.by import By
+from loguru import logger
 
 from src.base import WebDriverMixin, ChangeMode
 from src.tab import ChangeTabInfoTask
@@ -29,7 +27,7 @@ class InfoChanger(WebDriverMixin):
             super().__init__(email, password)
 
     def _parse_jsons(self):
-        print('Getting names data')
+        logger.info('Scraping jsons with all names and surnames')
         with open('data/json/names.json') as f:
             data = f.read()
             self.names = set(orjson.loads(data))
@@ -57,57 +55,75 @@ class InfoChanger(WebDriverMixin):
         filepath (optional): A string representing the path to the
         JSON file containing the authors' information. Default value is 'data/authors.json'.
         '''
+        logger.debug(f"Started changing with mode: '{self.mode.name}'")
         with open(filepath, 'r') as file:
             authors = orjson.loads(file.read())
-        unchanged_authors = list()
-        changed_authors = list()
+        unchanged_info = list()
+        changed_info = list()
+
         for author in authors:
             if author['link'] in self.blocklist:
                 continue
             fio = [name.title() for name in author.get('name').split()]
             if len(fio) != 3:
                 author.update({'error': 'Splitted fullname contains not 3 elements'})
-                unchanged_authors.append(author)
+                unchanged_info.append(author)
                 continue
             if len(self.names_n_surnames & set(fio)) != 2:
-                author.update({'error': 'No such name/surname in json data!'})
-                unchanged_authors.append(author)
+                # TODO: Add logic to process names like 'Иванов И.И.' to 'Иванов И. И.'
+                author.update({'error': 'No such name/surname in json data.'})
+                unchanged_info.append(author)
                 continue
             try:
                 surname = self.surnames & set(fio)
                 name = self.names & set(fio)
                 if len(name) != 1 or len(surname) != 1:
-                    raise Exception('Ambiguous fullname!')
+                    raise Exception('Ambiguous fullname.')
                 patronymic = set(fio).difference(surname.union(name)).pop()
                 name = name.pop()
                 surname = surname.pop()
-                new_name = f"{surname} {name[0]}. {patronymic[0]}."
-                changed_authors.append(
+                new_name = f"{surname} {name} {patronymic}"
+                if author['name'] == new_name:
+                    raise('Author already has correct fullname.')
+                changed_info.append(
                     {'old_name': author.get('name'), 'new_name': new_name, 'link': author.get('link')})
             except Exception as e:
                 author.update({'error': str(e)})
-                unchanged_authors.append(author)
+                unchanged_info.append(author)
                 continue
-        with open('result/changed authors.json', 'wb') as file:
-            file.write(orjson.dumps(changed_authors))
-        with open('result/unchanged authors.json', 'wb') as file:
-            file.write(orjson.dumps(unchanged_authors))
+
+        logger.info('Parsing changed info into jsons')
+        with open('result/changed info.json', 'wb') as file:
+            file.write(orjson.dumps(changed_info))
+        with open('result/unchanged info.json', 'wb') as file:
+            file.write(orjson.dumps(unchanged_info))
+        logger.debug(f"{len(changed_info)} authors were parsed to file 'changed info.json'")
+        logger.debug(f"{len(unchanged_info)} authors were parsed to file 'unchanged info.json'")
         if self.mode == ChangeMode.direct_change:
-            opened_tabs = 0
-            max_tabs = kwargs.get('max_tabs')
-            if max_tabs is None:
-                max_tabs = 5
-            max_tabs = int(max_tabs)
-            sleep_time = 5 / max_tabs
-            for ca in changed_authors:
-                task = ChangeTabInfoTask(self.driver, ca['link'], ca['new_name'])
-                task.run()
-                opened_tabs += 1
-                sleep(sleep_time)
-                if opened_tabs >= max_tabs:
-                    for _ in range(opened_tabs):
-                        self.driver.switch_to.window(self.driver.window_handles[0])
-                        self.driver.close()
-                        opened_tabs -= 1
-                    self.driver.switch_to.window(self.driver.window_handles[-1])
+            updated_authors = list()
+            try:
+                opened_tabs = 0
+                max_tabs = kwargs.get('max_tabs')
+                if max_tabs is None:
+                    max_tabs = 10
+                max_tabs = int(max_tabs)
+                sleep_time = 3 / max_tabs
+                for ca in changed_info:
+                    task = ChangeTabInfoTask(self.driver, ca['link'], ca['new_name'])
+                    task.run()
+                    opened_tabs += 1
+                    sleep(sleep_time)
+                    updated_authors.append(ca)
+                    if opened_tabs >= max_tabs:
+                        for _ in range(opened_tabs):
+                            self.driver.switch_to.window(self.driver.window_handles[0])
+                            self.driver.close()
+                            opened_tabs -= 1
+                        self.driver.switch_to.window(self.driver.window_handles[-1])
+            except:
+                logger.warning('Error occured while direct updating authors!')
+            logger.debug('Parsing authors that was updated in json')
+            with open('result/updated authors.json', 'wb') as file:
+                file.write(orjson.dumps(updated_authors))
+            logger.debug(f"{len(updated_authors)} were updated and parsed in 'updated authors.json'")
 

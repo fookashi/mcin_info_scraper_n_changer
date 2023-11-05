@@ -4,6 +4,7 @@ import re
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 import orjson
+from loguru import logger
 
 from src.base import WebDriverMixin, Participant
 
@@ -47,7 +48,7 @@ class AuthorScraper(WebDriverMixin):
                     next_page.click()
                 sleep(3)
         except:
-            print('Error occured while getting names from website')
+            logger.warning('Error occured while getting names from website')
         return participants
 
     def scrape_authors_info_into_file(self, symbols: str, filepath: str = 'data/authors.json') -> None:
@@ -63,9 +64,9 @@ class AuthorScraper(WebDriverMixin):
         '''
         participants = self._get_authors_info(symbols)
         if not len(participants):
-            print('No authors were scrapped! Are start symbols right?')
+            logger.critical('No authors were scrapped! Are start symbols right?')
             return
-        print(f"{len(participants)} authors were scraped, parsing them in {filepath}")
+        logger.debug(f"{len(participants)} authors were scraped, parsing them in {filepath}")
         with open(filepath, 'wb') as file:
             file.write(orjson.dumps(participants))
 
@@ -83,6 +84,6 @@ class AuthorScraper(WebDriverMixin):
         '''
         participants = self._get_authors_info(symbols)
         if not len(participants):
-            print('Got no authors! Are start symbols right?')
+            logger.critical('Got no authors! Are start symbols right?')
             return []
         return participants
