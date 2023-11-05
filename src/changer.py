@@ -36,6 +36,9 @@ class InfoChanger(WebDriverMixin):
         with open('data/json/surnames.json') as f:
             data = f.read()
             self.surnames = set(orjson.loads(data))
+        with open('data/blocklist.json') as f:
+            data = f.read()
+            self.blocklist = set(orjson.loads(data))
         self.names_n_surnames = self.names.union(self.surnames)
 
     def change_info(self, filepath: str = 'data/authors.json', **kwargs) -> None:
@@ -59,6 +62,8 @@ class InfoChanger(WebDriverMixin):
         unchanged_authors = list()
         changed_authors = list()
         for author in authors:
+            if author['link'] in self.blocklist:
+                continue
             fio = [name.title() for name in author.get('name').split()]
             if len(fio) != 3:
                 author.update({'error': 'Splitted fullname contains not 3 elements'})
