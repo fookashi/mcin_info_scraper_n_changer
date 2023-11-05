@@ -25,10 +25,10 @@ if __name__ == "__main__":
     email = 'email'
     password = 'password'
     # firstly!
-    # scrape_names(email, password, 'Аб')
-    # change_names_in_json(email, password)
+    scrape_names(email, password, 'Аб')
+    change_names_in_json(email, password)
     # after checked changed authors.json that changes of names are correct!
-    change_names_on_website(email, password, 15)
+    ## change_names_on_website(email, password, 15)
 
 
 

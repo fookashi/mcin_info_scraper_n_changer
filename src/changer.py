@@ -1,10 +1,15 @@
 from time import sleep
+import re
 
 import orjson
 from loguru import logger
 
 from src.base import WebDriverMixin, ChangeMode
 from src.tab import ChangeTabInfoTask
+
+
+class ChangerException(Exception):
+    ...
 
 
 class InfoChanger(WebDriverMixin):
@@ -65,26 +70,30 @@ class InfoChanger(WebDriverMixin):
             if author['link'] in self.blocklist:
                 continue
             fio = [name.title() for name in author.get('name').split()]
-            if len(fio) != 3:
-                author.update({'error': 'Splitted fullname contains not 3 elements'})
-                unchanged_info.append(author)
-                continue
-            if len(self.names_n_surnames & set(fio)) != 2:
-                # TODO: Add logic to process names like 'Иванов И.И.' to 'Иванов И. И.'
-                author.update({'error': 'No such name/surname in json data.'})
-                unchanged_info.append(author)
-                continue
             try:
+                if len(fio) != 3:
+                    raise ChangerException('Splitted fullname contains not 3 elements.')
+                if len(self.names_n_surnames & set(fio)) != 2:
+                    initials = re.findall(r'[А-ЯЁ]\.', author['name'])
+                    if len(initials) != 2:
+                        raise ChangerException("Couldn't find case for process this name.")
+                    surname = self.surnames & set(fio)
+                    new_name = f"{surname.pop()} {initials[0]} {initials[1]}"
+                    if author['name'] == new_name:
+                        raise ChangerException('Author already has correct fullname.')
+                    changed_info.append(
+                        {'old_name': author.get('name'), 'new_name': new_name, 'link': author.get('link')})
+                    continue
                 surname = self.surnames & set(fio)
                 name = self.names & set(fio)
                 if len(name) != 1 or len(surname) != 1:
-                    raise Exception('Ambiguous fullname.')
+                    raise ChangerException('Ambiguous fullname.')
                 patronymic = set(fio).difference(surname.union(name)).pop()
                 name = name.pop()
                 surname = surname.pop()
                 new_name = f"{surname} {name} {patronymic}"
                 if author['name'] == new_name:
-                    raise('Author already has correct fullname.')
+                    raise ChangerException('Author already has correct fullname.')
                 changed_info.append(
                     {'old_name': author.get('name'), 'new_name': new_name, 'link': author.get('link')})
             except Exception as e:
@@ -122,7 +131,7 @@ class InfoChanger(WebDriverMixin):
                         self.driver.switch_to.window(self.driver.window_handles[-1])
             except:
                 logger.warning('Error occured while direct updating authors!')
-            logger.debug('Parsing authors that was updated in json')
+            logger.info('Parsing authors that was updated in json')
             with open('result/updated authors.json', 'wb') as file:
                 file.write(orjson.dumps(updated_authors))
             logger.debug(f"{len(updated_authors)} were updated and parsed in 'updated authors.json'")
