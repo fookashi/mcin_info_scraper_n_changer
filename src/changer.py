@@ -42,7 +42,6 @@ class InfoChanger(WebDriverMixin):
         with open('data/blocklist.json') as f:
             data = f.read()
             self.blocklist = set(orjson.loads(data))
-        self.names_n_surnames = self.names.union(self.surnames)
 
     def change_info(self, filepath: str = 'data/authors.json', **kwargs) -> None:
         '''
@@ -65,18 +64,14 @@ class InfoChanger(WebDriverMixin):
             authors = orjson.loads(file.read())
         unchanged_info = list()
         changed_info = list()
-
+        already_correct = 0
         for author in authors:
             if author['link'] in self.blocklist:
                 continue
             fio = [name.title() for name in author.get('name').split()]
             try:
-                if len(fio) != 3:
-                    raise ChangerException('Splitted fullname contains not 3 elements.')
-                if len(self.names_n_surnames & set(fio)) != 2:
-                    initials = re.findall(r'[А-ЯЁ]\.', author['name'])
-                    if len(initials) != 2:
-                        raise ChangerException("Couldn't find case for process this name.")
+                initials = re.findall(r'[А-ЯЁ]\.', author['name'])
+                if len(initials) == 2:
                     surname = self.surnames & set(fio)
                     new_name = f"{surname.pop()} {initials[0]} {initials[1]}"
                     if author['name'] == new_name:
@@ -84,8 +79,12 @@ class InfoChanger(WebDriverMixin):
                     changed_info.append(
                         {'old_name': author.get('name'), 'new_name': new_name, 'link': author.get('link')})
                     continue
+                if len(fio) != 3:
+                    raise ChangerException('Splitted fullname contains not 3 elements.')
                 surname = self.surnames & set(fio)
                 name = self.names & set(fio)
+                if not(len(name) and len(surname)):
+                    raise ChangerException('No such surname or name in data.')
                 if len(name) != 1 or len(surname) != 1:
                     raise ChangerException('Ambiguous fullname.')
                 patronymic = set(fio).difference(surname.union(name)).pop()
@@ -93,7 +92,7 @@ class InfoChanger(WebDriverMixin):
                 surname = surname.pop()
                 new_name = f"{surname} {name} {patronymic}"
                 if author['name'] == new_name:
-                    raise ChangerException('Author already has correct fullname.')
+                    already_correct.append(author)
                 changed_info.append(
                     {'old_name': author.get('name'), 'new_name': new_name, 'link': author.get('link')})
             except Exception as e:

@@ -44,7 +44,7 @@ class WebDriverMixin:
         logger.info('Initializing browser driver')
         self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(10)
-        self.driver.get("https://orgm.riep.ru/cabinet")
+        self.driver.get("https://orgm.riep.ru/cabinet/authors.php")
         email_elem = self.driver.find_element(By.ID, 'email')
         email_elem.send_keys(email)
         password_elem = self.driver.find_element(By.ID, 'password')
