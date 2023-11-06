@@ -11,6 +11,7 @@ selenium = "^4.15.1"
 orjson = "^3.9.10"
 requests = "^2.31.0"
 loguru = "^0.7.2"
+orjsonl = "^0.3.1"
 
 
 [build-system]
