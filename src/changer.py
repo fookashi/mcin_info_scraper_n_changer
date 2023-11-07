@@ -43,6 +43,19 @@ class InfoChanger(WebDriverMixin):
             data = f.read()
             self.blocklist = set(orjson.loads(data))
 
+    def _correct_name_and_surname(self, name: set, surname: set) -> (str, str):
+        if (len(name) >= 1 and len(surname) > 1) or (len(name) > 1 and len(surname) >= 1):
+            if len(name & surname) > 0:
+                if len(name) != 1:
+                    name = name.difference(surname)
+                else:
+                    surname = surname.difference(name)
+                if len(name) != 1 or len(surname) != 1:
+                    raise ChangerException('Ambiguous fullname.')
+            else:
+                raise ChangerException('Ambiguous fullname.')
+        return name.pop(), surname.pop()
+
     def change_info(self, filepath: str = 'data/authors.json', **kwargs) -> None:
         '''
         The change_info method in the InfoChanger class processes a list of authors and updates their
@@ -69,10 +82,30 @@ class InfoChanger(WebDriverMixin):
                 continue
             fio = [name.title() for name in author.get('name').split()]
             try:
-                initials = re.findall(r'[А-ЯЁ]\.', author['name'])
+                pattern = r'([А-ЯЁ]\.|[А-ЯЁ]\s*\.)'
+                initials = re.findall(pattern, author['name'])
                 if len(initials) == 2:
-                    surname = re.sub(r'[А-ЯЁ]\.', '', author['name']).strip().title()
-                    new_name = f"{surname} {initials[0]} {initials[1]}"
+                    surname = re.sub(pattern, '', author['name']).strip().title()
+                    new_name = f"{surname} {initials[0][0]}. {initials[1][0]}."
+                    if author['name'] == new_name:
+                        continue
+                    changed_info.append(
+                        {'old_name': author.get('name'), 'new_name': new_name, 'link': author.get('link')})
+                    continue
+                if len(initials) == 1:
+                    remaining_name = re.sub(pattern, '', author['name']).split()
+                    if len(remaining_name) != 2:
+                        raise ChangerException('Too many lexemes in name(initials not included)')
+                    remaining_name = [f"{lexeme.title()}." if len(lexeme) == 1 else lexeme.title() for lexeme in remaining_name]
+                    surname = set(remaining_name) & self.surnames
+                    name = set(remaining_name) & self.names
+                    name, surname = self._correct_name_and_surname(name, surname)
+                    if name == surname:
+                        if len(re.findall(name, author['name'])) != 2:
+                            name = re.sub(surname, '', ''.join(remaining_name)).strip()
+                    if len(name) == 1:
+                        name = f"{name}."
+                    new_name = f"{surname} {name} {initials[0][0]}."
                     if author['name'] == new_name:
                         continue
                     changed_info.append(
@@ -84,19 +117,10 @@ class InfoChanger(WebDriverMixin):
                 name = self.names & set(fio)
                 if len(name) == 0 or len(surname) == 0:
                     raise ChangerException('No such surname or name in data.')
-                if len(name) != 1 or len(surname) != 1:
-                    if len(name & surname) > 0:
-                        if len(name) != 1:
-                            name = name.difference(surname)
-                        else:
-                            surname = surname.difference(name)
-                        if len(name) != 1 or len(surname) != 1:
-                            raise ChangerException('Ambiguous fullname.')
-                    else:
-                        raise ChangerException('Ambiguous fullname.')
-                patronymic = set(fio).difference(surname.union(name)).pop()
-                name = name.pop()
-                surname = surname.pop()
+                name, surname = self._correct_name_and_surname(name, surname)
+                patronymic = set(fio)
+                patronymic.remove(name), patronymic.remove(surname)
+                patronymic = patronymic.pop()
                 new_name = f"{surname} {name} {patronymic}"
                 if author['name'] == new_name:
                     continue

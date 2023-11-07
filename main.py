@@ -23,11 +23,11 @@ def scrape_names(email: str, password: str, symbols: str):
 
 
 if __name__ == "__main__":
-    email = 'username'
-    password = 'password'
+    email = 's22@test.test'
+    password = 'FV79GBUC'
     # firstly!
-    #scrape_names(email, password, 'Я')
-    # change_names_in_json(email, password)
+    #scrape_names(email, password, 'З')
+    change_names_in_json(email, password)
     # after checked changed authors.json that changes of names are correct!
     ## change_names_on_website(email, password, 15)
 
