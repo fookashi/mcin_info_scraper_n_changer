@@ -6,7 +6,7 @@ from selenium.webdriver.support.select import Select
 import orjson
 from loguru import logger
 
-from src.base import WebDriverMixin, Participant
+from .base import WebDriverMixin, Participant
 
 
 class AuthorScraper(WebDriverMixin):
@@ -21,7 +21,7 @@ class AuthorScraper(WebDriverMixin):
     def __init__(self, email, password):
         super().__init__(email,password)
 
-    def _get_authors_info(self, symbols: str) -> list:
+    def _get_authors_info(self, symbols: str, start: int, end: int) -> list:
         participants = list()
         try:
             self.driver.get("https://orgm.riep.ru/cabinet/authors.php")
@@ -29,9 +29,18 @@ class AuthorScraper(WebDriverMixin):
             filter_elem.send_keys(symbols)
             self.driver.find_element(By.CLASS_NAME, "btn-label").click()
             list_len = self.driver.find_element(By.NAME, 'alist_length')
+            #some condition - стартовое значение start и конечное значение end (1200,2400)
+
             Select(list_len).select_by_value('200')
             sleep(5)
             pattern = r"^[А-ЯЁ][а-яё]+ [А-ЯЁ]\. [А-ЯЁ]\.$"
+            #count_pages = 0
+            #сначала прокрутка до старта - после этого начинается работа алгоритма
+            #while count_pages*200 < start
+            #count_pages++
+            #next_page_click()
+
+            #while count_pages*200 < end
             while True:
                 table = self.driver.find_element(By.XPATH, ".//tbody")
                 rows = table.find_elements(By.CSS_SELECTOR, 'tr')
@@ -45,6 +54,7 @@ class AuthorScraper(WebDriverMixin):
                 if next_page.get_attribute('class') == 'paginate_button page-item next disabled':
                     break
                 else:
+                    #count pages++
                     next_page.click()
                 sleep(3)
         except:
