@@ -1,7 +1,11 @@
+from dotenv import load_dotenv
+import os
+
 from src.changer import InfoChanger, ChangeMode
 from src.scraper import AuthorScraper
 
 import orjson
+
 
 def change_names_in_json(email: str, password: str):
     # There are two modes: direct_change and changes_in_json
@@ -23,13 +27,18 @@ def scrape_names(email: str, password: str, symbols: str):
 
 
 if __name__ == "__main__":
-    email = 'username'
-    password = 'password'
-    # firstly!
-    #scrape_names(email, password, 'З')
-    #change_names_in_json(email, password)
-    # after checked changed authors.json that changes of names are correct!
-    change_names_on_website(email, password, 15)
+    load_dotenv()
+    # type your email and password in .env file
+    EMAIL = os.getenv('EMAIL')
+    PASSWORD = os.getenv('PASSWORD')
+    # #--------------------------------------------------------------------------#
+    # # Uncomment after you've read docstrings and understood what happens there #
+    # #--------------------------------------------------------------------------#
+    # scrape_names(EMAIL, PASSWORD, 'З')
+    # change_names_in_json(EMAIL, PASSWORD)
+    # # # After you've checked 'result/changed info.json' that changes of names are correct!
+    # change_names_on_website(EMAIL, PASSWORD, 15)
+
 
 
 
